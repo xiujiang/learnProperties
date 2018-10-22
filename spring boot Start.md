@@ -287,7 +287,190 @@ public EventPublishingRunListener(SpringApplication application, String[] args) 
 
 ​		![](D:\note\SpringApplicationRunListeners.png)
 
-​	4.
+​	4.new DefaultApplicationArguments(args) ,这里是把main函数的args参数当做一个PropertySource来解析,默认情况下,args的长度是0,所以这里创建的DefaultApplicationArguments也没有实际的内容。
+
+​	5.ConfigurableEnvironment **创建并配置ApplicationConext的Environment**，
+
+​		5.1首先要调用getOrCreateEnvironment方法获取一个Environment对象在默认情况下,执行到此处时,environment成员变量为null,而webEnvironment成员变量的值为true,所以会创建一个**StandardServletEnvironment**对象并返回。之后会调用ConfigurableEnvironment类型的对象的configureEnvironment方法来配置上一步获取到的Environment对象。
+
+​		5.2 **configureEnvironment方法先是调用configurePropertySources来配置properties**，configurePropertySources首先查看SpringApplication对象的成员变量defaultProperties,如果该变量非null且内容非空，则将其加入到Environment的PropertySource列表的最后。
+
+![1540203664420](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540203664420.png)
+
+​	之后查看SpringApplication对象的成员变量addCommandLineProperties和main函数的参数args，如果设置了addCommandLineProperties=true，且args个数大于0，那么就构造一个由main函数的参数组成的PropertySource放到Environment的PropertySource列表的最前面(这就能保证，我们通过main函数的参数来做的配置是最优先的，可以覆盖其他配置）。
+
+在默认情况下,由于没有配置defaultProperties且main函数的参数args个数为0，所以这个函数什么也不做。
+
+![1540203683430](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540203683430.png)
+
+**然后调用configureProfiles来配置profiles**
+
+![1540203703435](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540203703435.png)
+
+​	configureProfiles首先会读取Properties中key为spring.profiles.active的配置项，配置到Environment。
+
+![1540203994639](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540203994639.png)
+
+再将SpringApplication对象的成员变量additionalProfiles加入到Environment的active profiles配置中。
+
+​	默认情况下,配置文件里没有spring.profiles.active的配置项，而SpringApplication对象的成员变量additionalProfiles也是一个空的集合，所以这个函数没有配置任何active profile。
+
+6.**调用SpringApplicationRunListeners类的对象listeners发布ApplicationEnvironmentPreparedEvent事件：**
+
+​	到这一步时，Environment就算是配置完成了。接下来调用SpringApplicationRunListeners类的对象listeners发布ApplicationEnvironmentPreparedEvent事件。
+
+​	![1540204119605](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540204119605.png)
+
+等到发布完事件之后,我们就可以看看，加载的ApplicationListener对象都有哪些响应了这个事件，做了什么操作：
+
+​	6.1 **FileEncodingApplicationListener响应该事件：**
+
+​		![1540204310120](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540204310120.png)
+
+检查file.encoding配置是否与spring.mandatory_file_encoding一致
+在默认情况下,因为没有spring.mandatory_file_encoding的配置，所以这个响应方法什么都不做。
+
+​	6.2**AnsiOutputApplicationListener响应该事件: **
+
+​			![1540204682897](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540204682897.png)
+
+​	根据spring.output.ansi.enabled和spring.output.ansi.console-available对AnsiOutput类做相应配置。在默认情况下,因为没有做配置,所以这个响应方法什么都不做。
+
+​	6.3 **ConfigFileApplicationListener响应该事件:**
+
+![1540204787187](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540204787187.png)
+
+可以看到，ConfigFileApplicationListener从META-INF/spring.factories文件中读取EnvironmentPostProcessor配置，加载相应的EnvironmentPostProcessor类的对象，并调用其postProcessEnvironment方法。在我们的例子中，会加载CloudFoundryVcapEnvironmentPostProcessor和SpringApplicationJsonEnvironmentPostProcessor并执行，由于我们的例子中没有CloudFoundry和Json的配置，所以这个响应，不会加载任何的配置文件到Environment中来。
+
+​	6.4**DelegatingApplicationListener响应该事件:**
+
+​	![1540204855664](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540204855664.png)
+
+​	将配置文件中key为context.listener.classes的配置项，加载在成员变量multicaster中,因为在默认情况下没有key为context.listener.classes的Property，所以不会加载任何listener到该监听器中。
+
+​	6.5**LoggingApplicationListener响应事件:**
+
+​	![1540205006186](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205006186.png)
+
+​	![1540205090058](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205090058.png)
+
+对在ApplicationStarted时加载的LoggingSystem做一些初始化工作,默认情况下,是对加载的LogbackLoggingSystem做一些初始化工作。
+
+7.printBanner() 打印Logo
+
+​	printBanner方法中，首先会调用getBanner方法得到一个banner对象，然后判断bannerMode的类型，如果是Banner.Mode.LOG，那么将banner对象转换为字符串，打印一条info日志，否则的话，调用banner对象的printbanner方法，将banner打印到标准输出System.out。
+
+​	默认情况下,bannerMode是Banner.Mode.Console，而且也不曾提供过banner.txt这样的资源文件。所以selectBanner方法中得到到便是默认的banner对象，即SpringBootBanner类的对象。	
+
+![1540205364611](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205364611.png)
+
+![1540205423715](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205423715.png)
+
+
+
+8.**createApplicationContext()**
+
+![1540205721125](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205721125.png)
+
+SpringApplication中调用createApplicationContext获取创建ApplicationContext（IOC容器）,可以看到，当检测到本次程序是一个web应用程序（成员变量webEnvironment为true）的时候，就加载类
+DEFAULT_WEB_CONTEXT_CLASS，否则的话加载DEFAULT_CONTEXT_CLASS。我们的例子是一个web应用程序，所以会加载DEFAULT_WEB_CONTEXT_CLASS，也就是org.springframework.boot.context.embedded.AnnotationConfigEmbeddedWebApplicationContext。AnnotationConfigEmbeddedWebApplicationContext类的作用(功能):
+
+![](C:\company\note\learnProperties\AnnotationConfigEmbeddedWebApplicationContext.png)
+
+可以看到我们加载的这个AnnotationConfigEmbeddedWebApplicationContext类，从名字就可以看出来，首先是一个WebApplicationContext实现了WebApplicationContext接口，然后是一个EmbeddedWebApplicationContext，这意味着它会自动创建并初始化一个EmbeddedServletContainer，同时还支持AnnotationConfig，会将使用注解标注的bean注册到ApplicationContext中。
+
+总结起来就是:指定了容器的类名，最后通过Spring的工具类初始化容器类bean(BeanUtils.instantiate(contextClass))
+
+​	![1540205703757](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205703757.png)
+
+通过调用Class对象的newInstance()方法来实例化对象，这等同于直接调用类的空的构造方法，所以我们来看AnnotationConfigEmbeddedWebApplicationContext类的构造方法：
+
+![1540205740187](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205740187.png)
+
+构造方法中初始化了两个成员变量，类型分别为AnnotatedBeanDefinitionReader和ClassPathBeanDefinitionScanner用以加载使用注解的bean定义。
+这样ApplicationContext对象就创建出来了，在createAndRefreshContext方法中创建了ApplicationContext对象之后会紧接着调用其setEnvironment将我们之前准备好的Environment对象赋值进去。之后分别调用postProcessApplicationContext和applyInitializers做一些处理和初始化的操作。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
