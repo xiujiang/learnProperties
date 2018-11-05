@@ -165,5 +165,159 @@ processRequest的实现是在FrameworkServlet中，在这个方法中，最主�
 
 doService 方法最终实现是在DispatcherServlet中，这样所有的http请求（get,post,put,delete）的最终操作就是DispatcherServlet实现了。
 
-​	
+​	DispatcherServlet中doService的实现如下，对Request设置了一些全局属性，最终接下来的操作是在doDispatcher函数中实现了。
+
+```java
+	//获取请求，设置一些request的参数，然后分发给doDispatch
+	@Override
+protected void doService(HttpServletRequest request, HttpServletResponse response) 	throws Exception {
+	if (logger.isDebugEnabled()) {
+			String resumed = WebAsyncUtils.getAsyncManager(request).hasConcurrentResult() ? " resumed" : "";
+			logger.debug("DispatcherServlet with name '" + getServletName() + "'" + resumed +" processing " + request.getMethod() + " request for [" + getRequestUri(request) + "]");
+		}
+  // Keep a snapshot of the request attributes in case of an include,
+	// to be able to restore the original attributes after the include.
+	Map<String, Object> attributesSnapshot = null;
+	if (WebUtils.isIncludeRequest(request)) {
+		attributesSnapshot = new HashMap<String, Object>();
+		Enumeration<?> attrNames = request.getAttributeNames();
+		while (attrNames.hasMoreElements()) {
+			String attrName = (String) attrNames.nextElement();
+			if (this.cleanupAfterInclude || attrName.startsWith("org.springframework.web.servlet")) {
+				attributesSnapshot.put(attrName, request.getAttribute(attrName));
+			}
+		}
+	}
+ 
+	// Make framework objects available to handlers and view objects.
+	/* 设置web应用上下文**/
+	request.setAttribute(WEB_APPLICATION_CONTEXT_ATTRIBUTE, getWebApplicationContext());
+	/* 国际化本地**/
+	request.setAttribute(LOCALE_RESOLVER_ATTRIBUTE, this.localeResolver);
+	/* 样式**/
+	request.setAttribute(THEME_RESOLVER_ATTRIBUTE, this.themeResolver);
+	//设置样式资源
+	request.setAttribute(THEME_SOURCE_ATTRIBUTE, getThemeSource());
+	//请求刷新时保存属性
+	FlashMap inputFlashMap = this.flashMapManager.retrieveAndUpdate(request, response);
+	if (inputFlashMap != null) {
+		request.setAttribute(INPUT_FLASH_MAP_ATTRIBUTE, Collections.unmodifiableMap(inputFlashMap));
+	}
+	//Flash attributes 在对请求的重定向生效之前被临时存储（通常是在session)中，并且在重定向之后被立即移除
+	request.setAttribute(OUTPUT_FLASH_MAP_ATTRIBUTE, new FlashMap());
+	//FlashMap 被用来管理 flash attributes 而 FlashMapManager 则被用来存储，获取和管理 FlashMap 实体.
+	request.setAttribute(FLASH_MAP_MANAGER_ATTRIBUTE, this.flashMapManager);
+ 
+	try {
+		doDispatch(request, response);
+	}
+	finally {
+		if (!WebAsyncUtils.getAsyncManager(request).isConcurrentHandlingStarted()) {
+			// Restore the original attribute snapshot, in case of an include.
+			if (attributesSnapshot != null) {
+				restoreAttributesAfterInclude(request, attributesSnapshot);
+			}
+		}
+	}}
+```
+
+​	doDispatch函数中完成了对一个请求的所有操作，包含的内容还是比较多的，我们就不做详细分解，接下来我们会一步一步的分析一个请求调用Controller的完整过程。	
+
+
+​				
+```java
+/**
+	 *将Handler进行分发，handler会被handlerMapping有序的获得
+	 *通过查询servlet安装的HandlerAdapters来获得HandlerAdapters来查找第一个支持handler的类
+	 *所有的HTTP的方法都会被这个方法掌控。取决于HandlerAdapters 或者handlers 他们自己去决定哪些方法是可用
+	 *@param request current HTTP request
+	 *@param response current HTTP response
+	 */
+	protected void doDispatch(HttpServletRequest request, HttpServletResponse response) throws Exception {
+		/* 当前HTTP请求**/
+		HttpServletRequest processedRequest = request;
+		HandlerExecutionChain mappedHandler = null;
+		boolean multipartRequestParsed = false;
+	WebAsyncManager asyncManager = WebAsyncUtils.getAsyncManager(request);
+ 
+try {
+	ModelAndView mv = null;
+	Exception dispatchException = null;
+	
+try {
+	//判断是否有文件上传
+	processedRequest = checkMultipart(request);
+	multipartRequestParsed = (processedRequest != request);
+	
+	// 获得HandlerExecutionChain，其包含HandlerIntercrptor和HandlerMethod
+	mappedHandler = getHandler(processedRequest);
+	if (mappedHandler == null || mappedHandler.getHandler() == null) {
+		noHandlerFound(processedRequest, response);
+		return;
+	}			
+	//获得HandlerAdapter
+	HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
+	
+	//获得HTTP请求方法
+	String method = request.getMethod();
+	boolean isGet = "GET".equals(method);
+if (isGet || "HEAD".equals(method)) {
+	long lastModified = ha.getLastModified(request, mappedHandler.getHandler());
+		if (logger.isDebugEnabled()) {
+			logger.debug("Last-Modified value for [" + getRequestUri(request) + "] is: " + lastModified);
+	}
+if (new ServletWebRequest(request, response).checkNotModified(lastModified) && isGet) {
+			return;
+}
+}
+	//如果有拦截器的话，会执行拦截器的preHandler方法
+	if (!mappedHandler.applyPreHandle(processedRequest, response)) {
+		return;
+	}
+ 
+	//返回ModelAndView
+	mv = ha.handle(processedRequest, response, mappedHandler.getHandler());
+ 
+	if (asyncManager.isConcurrentHandlingStarted()) {
+		return;
+	}
+	//当view为空时，，根据request设置默认view
+	applyDefaultViewName(processedRequest, mv);
+	//执行拦截器的postHandle
+	mappedHandler.applyPostHandle(processedRequest, response, mv);
+		}
+		catch (Exception ex) {
+			dispatchException = ex;
+		}
+		processDispatchResult(processedRequest, response, mappedHandler, mv, dispatchException);
+	}
+	catch (Exception ex) {
+		triggerAfterCompletion(processedRequest, response, mappedHandler, ex);
+	}
+	catch (Error err) {
+		triggerAfterCompletionWithError(processedRequest, response, mappedHandler, err);
+	}
+	finally {
+		//判断是否是异步请求
+		if (asyncManager.isConcurrentHandlingStarted()) {
+			// Instead of postHandle and afterCompletion
+			if (mappedHandler != null) {
+				mappedHandler.applyAfterConcurrentHandlingStarted(processedRequest, response);
+			}
+		}
+		else {
+			// Clean up any resources used by a multipart request.
+			//删除上传资源
+			if (multipartRequestParsed) {
+				cleanupMultipart(processedRequest);
+			}
+		}
+	}
+```
+
+调用完doDispatch之后就完成了一个请求的访问，其会将渲染后的页面或者数据返回给请求发起者。
+
+https://blog.csdn.net/qq924862077/article/details/53523713
+
+
 
