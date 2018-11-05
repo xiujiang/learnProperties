@@ -388,39 +388,96 @@ DEFAULT_WEB_CONTEXT_CLASS，否则的话加载DEFAULT_CONTEXT_CLASS。我们的�
 ![1540205740187](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540205740187.png)
 
 构造方法中初始化了两个成员变量，类型分别为AnnotatedBeanDefinitionReader和ClassPathBeanDefinitionScanner用以加载使用注解的bean定义。
-这样ApplicationContext对象就创建出来了，在createAndRefreshContext方法中创建了ApplicationContext对象之后会紧接着调用其setEnvironment将我们之前准备好的Environment对象赋值进去。之后分别调用postProcessApplicationContext和applyInitializers做一些处理和初始化的操作。
+这样ApplicationContext对象就创建出来了，在createAndRefreshContext方法中创建了ApplicationContext对象
+
+**9.prepareContext()**
+
+​	之后会紧接着调用其setEnvironment将我们之前准备好的Environment对象赋值进去。
+
+![1540980215572](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540980215572.png)
+
+之后分别调用postProcessApplicationContext和applyInitializers做一些处理和初始化的操作。如果成员变量beanNameGenerator不为Null，那么为ApplicationContext对象注册beanNameGenerator bean。如果成员变量resourceLoader不为null，则为ApplicationContext对象设置ResourceLoader。默认情况下，这两个成员变量都为Null，所以什么都不做。
+
+![1540980238830](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540980238830.png)
+
+初始化节点。
+
+![1540980351938](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1540980351938.png)
 
 
 
+**10.refreshContext（）**
+
+​	刷新上下文
+
+![1541060303717](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541060303717.png)
 
 
 
+![1541060349648](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541060349648.png)
 
+这里调用的是AbstractApplicationContext的refresh()方法刷新上下文。
+1、this.prepareRefresh();
+准备启动spring容器，设置容器的启动日期和活动标志
 
+2、ConfigurableListableBeanFactory beanFactory = this.obtainFreshBeanFactory();
+主要是创建beanFactory，同时加载配置文件.xml中的beanDefinition  
+通过String[] configLocations = getConfigLocations()获取资源路径，然后加载beanDefinition  
 
+3、this.prepareBeanFactory(beanFactory);
+给beanFactory注册一些标准组件，如ClassLoader，StandardEnvironment，BeanProcess  
 
+4、this.postProcessBeanFactory(beanFactory);
+提供给子类实现一些postProcess的注册，如AbstractRefreshableWebApplicationContext注册一些Servlet相关的postProcess，真对web进行生命周期管理的Scope，通过registerResolvableDependency()方法注册指定ServletRequest，HttpSession，WebRequest对象的工厂方法。
 
+5、this.invokeBeanFactoryPostProcessors(beanFactory);
+调用所有BeanFactoryProcessor的postProcessBeanFactory()方法  
 
+6、this.registerBeanPostProcessors(beanFactory);
+注册BeanPostProcessor，BeanPostProcessor作用是用于拦截Bean的创建  
 
+7、this.initMessageSource();
+初始化消息Bean  
 
+8、this.initApplicationEventMulticaster();
+初始化上下文的事件多播组建，ApplicationEvent触发时由multicaster通知给ApplicationListener  
 
+9、this.onRefresh();
+ApplicationContext初始化一些特殊的bean ,onRefresh 会创建servlet容器，
 
+![1541062316558](C:\company\note\learnProperties\1541062316558.png)
 
+![1541062381040](C:\company\note\learnProperties\1541062381040.png)
 
+10、this.registerListeners();
+注册事件监听器，事件监听Bean统一注册到multicaster里头，ApplicationEvent事件触发后会由multicaster广播  
 
+11、this.finishBeanFactoryInitialization(beanFactory);
+非延迟加载的单例Bean实例化
 
+12、this.finishRefresh();	结束刷新
+**11.afterRefresh()**
 
+​	结束刷新容器之后执行的afterRefresh()方法:
 
+![1541060753653](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541060753653.png)
 
+​	实际应用中，我们会有在项目服务启动的时候就去加载一些数据或做一些事情这样的需求。比如读取配置文件，数据库连接之类的。SpringBoot给我们提供了两个接口来帮助我们实现这种需求。这两个接口分别为CommandLineRunner和ApplicationRunner。他们的执行时机为容器启动完成的时候。
+​	这两个接口中有一个run方法，我们只需要实现这个方法即可。这两个接口的不同之处在于：ApplicationRunner中run方法的参数为ApplicationArguments，而CommandLineRunner接口中run方法的参数为String数组。
 
+**12.finished()**
 
+![1541061102670](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541061102670.png)
 
+最后结束监听器。从上述代码中可以看出,finished()方法是通过发布**结束监听**这个事件，当实现onApplication(相应事件)的监听类监听到这个事件时,就会结束相应的监听。
 
+**stopWatch.stop();**
 
+结束计时:
 
+**开始打印Log信息:**
 
-
-
+![1541061373405](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541061373405.png)
 
 
 
