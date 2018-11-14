@@ -317,6 +317,114 @@ if (new ServletWebRequest(request, response).checkNotModified(lastModified) && i
 
 调用完doDispatch之后就完成了一个请求的访问，其会将渲染后的页面或者数据返回给请求发起者。
 
+#### 1.3 HandlerInterceptor拦截器
+
+​	先看拦截器：拦截器提供了三个方法，`preHandle`、`postHandle`、`afterCompletion`.
+
+```java
+public interface HandlerInterceptor {
+    default boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        return true;
+    }
+
+    default void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable ModelAndView modelAndView) throws Exception {
+    }
+
+    default void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable Exception ex) throws Exception {
+    }
+}
+```
+
+**preHandle** 方法，顾名思义，也就是在调用Controller之前调用处理，SpringMvc中可以同时存在多个Interceptor,当存在多个Interceptor时，SpringMvc会根据声明的前后顺序去调用执行，并且所有的preHandle方法都在Controller之前调用。当多个preHandle方法执行时，当某个preHandle返回false后，会中断执行，请求执行结束。
+
+**postHandle** 方法，当preHandle方法执行结束后，调用Controller方法对请求进行处理，处理完成后，会调用postHandle方法，postHandle方法会在DispatcherServlet进行视图渲染之前调用，所以在postHandle方法中可以对ModelView进行处理。当有多个Interceptor时，调用postHandle的顺序和preHandle的正好相反，先定义的反而后执行。
+
+**afterCompletion** 这个方法是在DispatcherServlet对视图进行渲染之后调用的。这个方法主要的作用在于清理资源。
+
+![1542210560528](D:\note\1542210560528.png)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 https://blog.csdn.net/qq924862077/article/details/53523713
 
 
