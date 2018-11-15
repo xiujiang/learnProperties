@@ -347,11 +347,68 @@ public interface HandlerInterceptor {
 
 
 
+我们知道这三个方法之后，就要知道这三个方法是怎么执行的。这三个方法的具体实现，都是在doDispatch方法中实现的。
 
+~~~ java
+if (!mappedHandler.applyPreHandle(processedRequest, response)) {
+		return;
+}
+/**
+* 获取所有的HandlerInterceptor，循环进行执行，当某个preHandler执行失败，返回false
+*/
+ boolean applyPreHandle(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        HandlerInterceptor[] interceptors = this.getInterceptors();
+        if (!ObjectUtils.isEmpty(interceptors)) {
+            for(int i = 0; i < interceptors.length; this.interceptorIndex = i++) {
+                HandlerInterceptor interceptor = interceptors[i];
+                if (!interceptor.preHandle(request, response, this.handler)) {
+                    this.triggerAfterCompletion(request, response, (Exception)null);
+                    return false;
+                }
+            }
+        }
 
+        return true;
+    }
 
+/**
+* postHandler 获取所有的interceptor之后，倒序进行循环执行。
+*/
+  void applyPostHandle(HttpServletRequest request, HttpServletResponse response, @Nullable ModelAndView mv) throws Exception {
+        HandlerInterceptor[] interceptors = this.getInterceptors();
+        if (!ObjectUtils.isEmpty(interceptors)) {
+            for(int i = interceptors.length - 1; i >= 0; --i) {
+                HandlerInterceptor interceptor = interceptors[i];
+                interceptor.postHandle(request, response, this.handler, mv);
+            }
+        }
 
+    }
+~~~
 
+**triggerAfterCompletion(processedRequest, response, mappedHandler, ex)**：最终会调用HandlerInterceptor的afterCompletion 方法。
+
+**triggerAfterCompletionWithError(processedRequest, response, mappedHandler, err)**：最终会调用HandlerInterceptor的afterCompletion 方法
+
+~~~ java
+void triggerAfterCompletion(HttpServletRequest request, HttpServletResponse response, @Nullable Exception ex) throws Exception {
+        HandlerInterceptor[] interceptors = this.getInterceptors();
+        if (!ObjectUtils.isEmpty(interceptors)) {
+            for(int i = this.interceptorIndex; i >= 0; --i) {
+                HandlerInterceptor interceptor = interceptors[i];
+
+                try {
+                    interceptor.afterCompletion(request, response, this.handler, ex);
+                } catch (Throwable var8) {
+                    logger.error("HandlerInterceptor.afterCompletion threw exception", var8);
+                }
+            }
+        }
+
+    }
+~~~
+
+​	通过以上代码分析我们可以看到HandlerInterceptor拦截器的最终调用实现是在DispatcherServlet的doDispatch方法中，并且SpringMVC提供了HandlerExecutionChain来帮助我们执行所有配置的HandlerInterceptor拦截器，并分别调用HandlerInterceptor所提供的方法。
 
 
 
