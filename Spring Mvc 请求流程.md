@@ -66,13 +66,44 @@ View是一个接口，实现类支持不同的View类型（jsp、freemarker、pd
 
 
 
-### 1.DispatcherServlet
 
-​	在整个Spring mvc 框架中，DispatcherServlet 处于核心位置，它负责协调和组织不同组建完成请求处理并返回响应工作。在看DispatcherServlet类之前，先看一下请求处理的大致流程：
 
-​	1.Tomcat启动，对DispatcherServlet进行实例化，然后调用它的`init()`方法进行初始化，在这个初始化过程中完成了：对web.xml中初始化参数的加载；建立webApplicationContext(SpringMVC的IOC容器);进行组建的初始化。
+### 源码解析
 
-​	2.客户端发出请求，由Tomcat接收到这个请求，如果匹配DispatcherServlet在web.xml中配置的映射路径，Tomcat就将请求转交给DispatcherServlet处理；
+​	按照请求的流转路径，来学习源码。
+
+#### 1.类信息
+
+  
+
+| 类名                    | extends&implements | 描述                                                       |
+| ----------------------- | ------------------ | ---------------------------------------------------------- |
+| DispatcherServlet       | FrameworkServlet   | 核心类，请求的主要处理者，负责协调和组织不同组件完成处理。 |
+| HandlerMapping          | **interface**      | HandlerMapping的本质就是找到Controller                     |
+| HandlerAdapter          |                    |                                                            |
+| ListableBeanFactory     | BeanFactory        | 提供容器中bean的迭代功能，获取所有bean,根据类型获取bean    |
+| HierarchicalBeanFactory | BeanFactory        | 提供父容器的访问功能                                       |
+| ViewResolver            | **interface**      | 视图解析器                                                 |
+| ModelAndView            |                    | 模型视图信息                                               |
+| HandlerInterceptor      | **interface**      | 拦截器顶级父类，通用为:HandlerInterceptorAdapter           |
+| HandlerExecutionChain   |                    | handler执行链                                              |
+|                         |                    |                                                            |
+|                         |                    |                                                            |
+|                         |                    |                                                            |
+
+#### 2.请求处理流程
+
+​	在整个Spring mvc 框架中，DispatcherServlet 处于核心位置，它负责协调和组织不同组件完成请求处理并返回响应工作。在看DispatcherServlet类之前，先看一下请求处理的**大致流程**：
+
+​	1.Tomcat启动，对DispatcherServlet进行实例化，然后调用它的`init()`方法进行初始化，在这个初始化过程中完成了：
+
+​	**对web.xml中初始化参数的加载**；
+
+​	**建立webApplicationContext(SpringMVC的IOC容器);**
+
+​	**进行组件的初始化。**
+
+​	2.客户端发出请求，由Tomcat接收到这个请求，如果匹配了DispatcherServlet在web.xml中配置的映射路径，Tomcat就将请求转交给DispatcherServlet处理；
 
 ​	3.DispatcherServlet从容器中取出所有Handlermapping实例（每个实例对应一个HandlerMapping接口的实现类）并遍历，每个HandlerMapping会根据请求信息，通过自己实现类中的方式去找到处理该请求的Handler(执行程序，如Controller中的方法)，并且将这个Handler与一堆HandlerInterceptor（拦截器）封装成一个HandlerExecutionChain对象，一旦有一个HandlerMapping可以找到Handler，则退出循环；
 
@@ -84,21 +115,17 @@ View是一个接口，实现类支持不同的View类型（jsp、freemarker、pd
 
 ​	7.最后再依次调用拦截器的afterCompletion()方法，请求结束。
 
-**源码解析**
+​	
 
-​	DispatcherServlet 继承自 HttpServlet，它遵循 Servlet 里的“init-service-destroy”三个阶段，首先我们先来看一下它的 init() 阶段。
+DispatcherServlet 继承自 HttpServlet，它遵循 Servlet 里的“init-service-destroy”三个阶段，首先我们先来看一下它的 init() 阶段。
 
-#### 1.1init()
+##### 1.1 init()
 
 ​	DispatcherServlet --->FrameworkServlet --->HttpServletBean
 
 ​			![1541149275167](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541149275167.png)	
 
-FrameworkServlet 中的事件
-
-
-
-​			![1541149238321](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541149238321.png)
+Spring 容器在启动过程中，会注册ApplicationEvent   (FrameworkServlet 中的事件)			![1541149238321](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\1541149238321.png)
 
 当FrameWorkServlet 中的onRefresh 事件发生后，会初始化DispatcherServlet. 初始化中，分别会调用：
 
@@ -122,7 +149,7 @@ FrameworkServlet 中的事件
 
 ​	**9.initFlashMapManager()**：初始化flash映射管理器,与链接跳转相关的。
 
-#### 1.2 DispatcherServlet请求获取及处理
+##### 1.2 DispatcherServlet
 
 ​	DispatcherServlet 继承自HttpServlet，所以它和普通的HttpServlet有同样的配置。
 
@@ -221,7 +248,7 @@ protected void doService(HttpServletRequest request, HttpServletResponse respons
 	}}
 ```
 
-​	doDispatch函数中完成了对一个请求的所有操作，包含的内容还是比较多的，我们就不做详细分解，接下来我们会一步一步的分析一个请求调用Controller的完整过程。	
+​	doDispatch函数中完成了对一个请求的所有操作。
 
 
 ​				
@@ -312,24 +339,72 @@ if (new ServletWebRequest(request, response).checkNotModified(lastModified) && i
 				cleanupMultipart(processedRequest);
 			}
 		}
-	}
+    }
 ```
 
 调用完doDispatch之后就完成了一个请求的访问，其会将渲染后的页面或者数据返回给请求发起者。
 
-#### 1.3 HandlerInterceptor拦截器
+##### 1.3 HandlerMapping
 
-​	先看拦截器：拦截器提供了三个方法，`preHandle`、`postHandle`、`afterCompletion`.
+​	我们知道，在对DispatcherServlet做初始化之前，WebApplicationContext已经加载完成，IOC容器也已经工作。在初始化DispatcherServlet的时候会加载HandlerMapping,  initHandlerMappings核心方法为：
+
+​	**BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);**
+
+```java
+private void initHandlerMappings(ApplicationContext context) {
+		this.handlerMappings = null;
+
+		if (this.detectAllHandlerMappings) {
+			// Find all HandlerMappings in the ApplicationContext, including ancestor contexts.
+			Map<String, HandlerMapping> matchingBeans =
+					BeanFactoryUtils.beansOfTypeIncludingAncestors(context, HandlerMapping.class, true, false);
+			if (!matchingBeans.isEmpty()) {
+				this.handlerMappings = new ArrayList<HandlerMapping>(matchingBeans.values());
+				// We keep HandlerMappings in sorted order.
+				AnnotationAwareOrderComparator.sort(this.handlerMappings);
+			}
+            ……………………
+		}
+```
+
+这个方法中，首先通过lbf也就是WebApplicationContext来获取所有HandlerMapping类型的的bean。如果类型为HierarchicalBeanFactory，则把父类ListableBeanFactory中的bean获取到。
+
+```java
+public static <T> Map<String, T> beansOfTypeIncludingAncestors(
+      ListableBeanFactory lbf, Class<T> type, boolean includeNonSingletons, boolean allowEagerInit)
+      throws BeansException {
+
+   Assert.notNull(lbf, "ListableBeanFactory must not be null");
+   Map<String, T> result = new LinkedHashMap<String, T>(4);
+   result.putAll(lbf.getBeansOfType(type, includeNonSingletons, allowEagerInit));
+   if (lbf instanceof HierarchicalBeanFactory) {
+      HierarchicalBeanFactory hbf = (HierarchicalBeanFactory) lbf;
+      if (hbf.getParentBeanFactory() instanceof ListableBeanFactory) {
+         Map<String, T> parentResult = beansOfTypeIncludingAncestors(
+               (ListableBeanFactory) hbf.getParentBeanFactory(), type, includeNonSingletons, allowEagerInit);
+         for (Map.Entry<String, T> entry : parentResult.entrySet()) {
+            String beanName = entry.getKey();
+            if (!result.containsKey(beanName) && !hbf.containsLocalBean(beanName)) {
+               result.put(beanName, entry.getValue());
+            }
+         }
+      }
+   }
+   return result;
+}
+```
+
+##### 1.3 HandlerInterceptor
+
+​	 拦截器：拦截器提供了三个方法，`preHandle`、`postHandle`、`afterCompletion`.
 
 ```java
 public interface HandlerInterceptor {
     default boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
         return true;
     }
-
     default void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable ModelAndView modelAndView) throws Exception {
     }
-
     default void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, @Nullable Exception ex) throws Exception {
     }
 }
@@ -345,15 +420,22 @@ public interface HandlerInterceptor {
 
 
 
-
-
-我们知道这三个方法之后，就要知道这三个方法是怎么执行的。这三个方法的具体实现，都是在doDispatch方法中实现的。
+doDispatch方法处理Interceptor
 
 ~~~ java
+	//调用HandlerExecutionChain的applyPreHandle方法
 if (!mappedHandler.applyPreHandle(processedRequest, response)) {
 		return;
 }
+//HandlerInterceptor 最终的调用是通过HandlerExecutionChain，来看一下这个类：
+public class HandlerExecutionChain {
+private final Object handler;	//存储HandlerMethod
+private HandlerInterceptor[] interceptors;	//HandlerInterceptor数组
+private List<HandlerInterceptor> interceptorList;	//所有interceptor的链表
+private int interceptorIndex = -1;
+    
 /**
+* HandlerExecutionChain
 * 获取所有的HandlerInterceptor，循环进行执行，当某个preHandler执行失败，返回false
 */
  boolean applyPreHandle(HttpServletRequest request, HttpServletResponse response) throws Exception {
@@ -410,11 +492,7 @@ void triggerAfterCompletion(HttpServletRequest request, HttpServletResponse resp
 
 ​	通过以上代码分析我们可以看到HandlerInterceptor拦截器的最终调用实现是在DispatcherServlet的doDispatch方法中，并且SpringMVC提供了HandlerExecutionChain来帮助我们执行所有配置的HandlerInterceptor拦截器，并分别调用HandlerInterceptor所提供的方法。
 
-
-
-
-
-
+ 
 
 
 
