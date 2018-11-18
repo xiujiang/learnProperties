@@ -1,4 +1,6 @@
-## Spring Mvc 请求流程
+# Spring Mvc 请求流程
+
+## 1. 请求流程
 
 SpringMVC框架是一个基于请求驱动的Web框架，并且使用了‘前端控制器’模型来进行设计，再根据‘请求映射规则’分发给相应的页面控制器进行处理。
 
@@ -46,41 +48,19 @@ SpringMVC框架是一个基于请求驱动的Web框架，并且使用了‘前�
 
 第十一步：前端控制器向用户响应结果
 
- 
-
-### **总结 核心开发步骤**
-
-1、  DispatcherServlet 在 web.xml 中的部署描述，从而拦截请求到 Spring Web MVC
-
-2、  HandlerMapping 的配置，从而将请求映射到处理器
-
-3、  HandlerAdapter 的配置，从而支持多种类型的处理器
-
-注：处理器映射求和适配器使用纾解的话包含在了注解驱动中，不需要在单独配置
-
-4、  ViewResolver 的配置，从而将逻辑视图名解析为具体视图技术
-
-5、  处理器（页面控制器）的配置，从而进行功能处理 
-
-View是一个接口，实现类支持不同的View类型（jsp、freemarker、pdf...）
 
 
-
-
-
-### 源码解析
+## 2.源码解析
 
 ​	按照请求的流转路径，来学习源码。
 
-#### 1.类信息
-
-  
+### 1.类信息
 
 | 类名                    | extends&implements | 描述                                                       |
 | ----------------------- | ------------------ | ---------------------------------------------------------- |
 | DispatcherServlet       | FrameworkServlet   | 核心类，请求的主要处理者，负责协调和组织不同组件完成处理。 |
 | HandlerMapping          | **interface**      | HandlerMapping的本质就是找到Controller                     |
-| HandlerAdapter          |                    |                                                            |
+| HandlerAdapter          |                    | 具体调用controller的方法                                   |
 | ListableBeanFactory     | BeanFactory        | 提供容器中bean的迭代功能，获取所有bean,根据类型获取bean    |
 | HierarchicalBeanFactory | BeanFactory        | 提供父容器的访问功能                                       |
 | ViewResolver            | **interface**      | 视图解析器                                                 |
@@ -91,7 +71,7 @@ View是一个接口，实现类支持不同的View类型（jsp、freemarker、pd
 |                         |                    |                                                            |
 |                         |                    |                                                            |
 
-#### 2.请求处理流程
+### 2.请求处理流程
 
 ​	在整个Spring mvc 框架中，DispatcherServlet 处于核心位置，它负责协调和组织不同组件完成请求处理并返回响应工作。在看DispatcherServlet类之前，先看一下请求处理的**大致流程**：
 
@@ -119,7 +99,7 @@ View是一个接口，实现类支持不同的View类型（jsp、freemarker、pd
 
 DispatcherServlet 继承自 HttpServlet，它遵循 Servlet 里的“init-service-destroy”三个阶段，首先我们先来看一下它的 init() 阶段。
 
-##### 1.1 init()
+#### 1.1 init()
 
 ​	DispatcherServlet --->FrameworkServlet --->HttpServletBean
 
@@ -149,7 +129,25 @@ Spring 容器在启动过程中，会注册ApplicationEvent   (FrameworkServlet 
 
 ​	**9.initFlashMapManager()**：初始化flash映射管理器,与链接跳转相关的。
 
-##### 1.2 DispatcherServlet
+这些在初始化的时候，会调用到DispatcherServlet包下的DispatcherServlet的配置文件，这个配置文件中定义了一些要初始化的类：
+
+~~~ properties
+org.springframework.web.servlet.LocaleResolver=org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver
+org.springframework.web.servlet.ThemeResolver=org.springframework.web.servlet.theme.FixedThemeResolver
+org.springframework.web.servlet.HandlerMapping=org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping,\
+	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
+org.springframework.web.servlet.HandlerAdapter=org.springframework.web.servlet.mvc.HttpRequestHandlerAdapter,\
+	org.springframework.web.servlet.mvc.SimpleControllerHandlerAdapter,\
+	org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter
+org.springframework.web.servlet.HandlerExceptionResolver=org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver,\
+	org.springframework.web.servlet.mvc.annotation.ResponseStatusExceptionResolver,\
+	org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolver
+org.springframework.web.servlet.RequestToViewNameTranslator=org.springframework.web.servlet.view.DefaultRequestToViewNameTranslator
+org.springframework.web.servlet.ViewResolver=org.springframework.web.servlet.view.InternalResourceViewResolver
+org.springframework.web.servlet.FlashMapManager=org.springframework.web.servlet.support.SessionFlashMapManager
+~~~
+
+#### 1.2 DispatcherServlet
 
 ​	DispatcherServlet 继承自HttpServlet，所以它和普通的HttpServlet有同样的配置。
 
@@ -344,7 +342,7 @@ if (new ServletWebRequest(request, response).checkNotModified(lastModified) && i
 
 调用完doDispatch之后就完成了一个请求的访问，其会将渲染后的页面或者数据返回给请求发起者。
 
-##### 1.3 HandlerMapping
+#### 1.3 HandlerMapping
 
 ​	我们知道，在对DispatcherServlet做初始化之前，WebApplicationContext已经加载完成，IOC容器也已经工作。在初始化DispatcherServlet的时候会加载HandlerMapping,  initHandlerMappings核心方法为：
 
@@ -394,7 +392,7 @@ public static <T> Map<String, T> beansOfTypeIncludingAncestors(
 }
 ```
 
-##### 1.3 HandlerInterceptor
+#### 1.3 HandlerInterceptor
 
 ​	 拦截器：拦截器提供了三个方法，`preHandle`、`postHandle`、`afterCompletion`.
 
@@ -492,9 +490,98 @@ void triggerAfterCompletion(HttpServletRequest request, HttpServletResponse resp
 
 ​	通过以上代码分析我们可以看到HandlerInterceptor拦截器的最终调用实现是在DispatcherServlet的doDispatch方法中，并且SpringMVC提供了HandlerExecutionChain来帮助我们执行所有配置的HandlerInterceptor拦截器，并分别调用HandlerInterceptor所提供的方法。
 
- 
+#### 1.4 HandlerAdapter
+
+​	**HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());**
+
+​	HandlerAdapter 的功能就是去执行我们的Controller，Servlet或者HttpRequestHandler中的方法。它定义了三个方法，用于处理Handler。​	
+
+​	1.boolean supports(Object handler); 判断是否支持传入的Handler
+
+​	2.ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler)  用来使用Handler处理请求.
+
+​	3.long getLastModified(HttpServletRequest request, Object handler); 用来获取资料的Last-Modified值。
+
+在DispatcherServlet 初始化中，就已经注入了几个HandlerAdapter，让我们来看一下这些HandlerAdapter​	**1.SimpleServletHandlerAdapter**
+
+​	SimpleServletHandlerAdapter 实际就是执行HttpServlet的service方法,它其实就是一个Servlet的适配器，其最终是执行Servlet的service方法，
+
+**2.SimpleControllerHandlerAdapter**
+
+​	SimpleControllerHandlerAdapter 实际就是执行Controller的handleRequest方法。我们来看一下这个HanderAdapter源码，在执行handle方法，直接强制转化为controller类，并且调用handleRequest();
+
+```java
+public class SimpleControllerHandlerAdapter implements HandlerAdapter {
+    ………………
+    @Nullable
+    public ModelAndView handle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        return ((Controller)handler).handleRequest(request, response);
+    }
+ 	………………
+}
+```
+
+**3.HttpRequestHandlerAdapter**
+
+​	HttpRequestHandlerAdapter实际就是执行HttpRequestHandler的handleRequest方法。
+
+**4.RequestMappingHandlerAdapter**
+
+​	RequestMappingHandlerAdapter实际就是执行@RequestMapping注解的方法。
 
 
+
+
+
+
+
+ #### 1.5 ModelAndView
+
+​	modelAndView
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Controller注册过程
 
 
 
