@@ -67,9 +67,8 @@ SpringMVC框架是一个基于请求驱动的Web框架，并且使用了‘前�
 | ModelAndView            |                    | 模型视图信息                                               |
 | HandlerInterceptor      | **interface**      | 拦截器顶级父类，通用为:HandlerInterceptorAdapter           |
 | HandlerExecutionChain   |                    | handler执行链                                              |
-|                         |                    |                                                            |
-|                         |                    |                                                            |
-|                         |                    |                                                            |
+| LocaleResolver          |                    | 视图解析器                                                 |
+| ThemeResolver           |                    | 视图解析器                                                 |
 
 ### 2.请求处理流程
 
@@ -129,7 +128,7 @@ Spring 容器在启动过程中，会注册ApplicationEvent   (FrameworkServlet 
 
 ​	**9.initFlashMapManager()**：初始化flash映射管理器,与链接跳转相关的。
 
-这些在初始化的时候，会调用到DispatcherServlet包下的DispatcherServlet的配置文件，这个配置文件中定义了一些要初始化的类：
+这些在初始化的时候，会调用到org.springFrameWork.web.servlet包下的DispatcherServlet.properties的配置文件，这个配置文件中定义了一些要初始化的类：
 
 ~~~ properties
 org.springframework.web.servlet.LocaleResolver=org.springframework.web.servlet.i18n.AcceptHeaderLocaleResolver
@@ -248,8 +247,6 @@ protected void doService(HttpServletRequest request, HttpServletResponse respons
 
 ​	doDispatch函数中完成了对一个请求的所有操作。
 
-
-​				
 ```java
 /**
 	 *将Handler进行分发，handler会被handlerMapping有序的获得
@@ -529,37 +526,125 @@ public class SimpleControllerHandlerAdapter implements HandlerAdapter {
 
 ​	RequestMappingHandlerAdapter实际就是执行@RequestMapping注解的方法。
 
-
-
-
-
-
-
  #### 1.5 ModelAndView
 
-​	modelAndView
+​	modelAndView从这个名字中我们就可以知道这个类的大致作用，这个类包括两方面：`model`和`view`,
+
+model 是接收到将要返回的模型信息，而view 则代表了要返回的view视图信息。来看一下源码：
+
+```java
+/** View instance or view name String */
+private Object view;
+
+/** Model Map */
+private ModelMap model;
+
+/** Optional HTTP status for the response */
+private HttpStatus status;
+
+/** Indicates whether or not this instance has been cleared with a call to {@link #clear()} */
+private boolean cleared = false;
+```
+
+modelAndView 类中存放了一个view 视图或视图名称，model是一个modelMap，里面存放着我们要返回的数据信息。看构造方法，ModelMap(String,Object),接收一个String类型的attributeName,并把信息放入其中。
+
+```java
+public ModelMap(String attributeName, Object attributeValue) {
+   addAttribute(attributeName, attributeValue);
+}
+```
+
+![1542621818388](1542621818388.png)
+
+在modelAndview中，构造方法由8个，String类型的作为name,在接收到后赋值到view上面，Map类型为model信息，HttpStatus代表了当前响应是否成功。
+
+![1542621978054](1542621978054.png)
+
+当构造好一个ModelAndView类对象的时候，DispatcherServlet会获取视图名称，如果mv视图名为空，则获取默认视图名称， 否则使用controller传回的view Name,所以，我们在Controller中，指定了返回的视图信息，则使用返回的视图。
+
+```java
+//设置ViewName
+private void applyDefaultViewName(HttpServletRequest request, ModelAndView mv) throws Exception {
+   if (mv != null && !mv.hasView()) {
+      mv.setViewName(getDefaultViewName(request));
+   }
+}
+```
+
+```java
+
+```
 
 
 
+#### 1.6 ViewResolver
 
+在初始化DispatcherServlet的时候就已经初始化了所有的ViewResolver,初始ViewResolvers的过程，同HandlerMapping 相同。会根据Context找到Spring 应用上下文中所有的ViewResolvers信息。
 
+~~~ java
+//获取ModelAndView之后，来执行方法。
+private void processDispatchResult(HttpServletRequest request, HttpServletResponse response,
+      HandlerExecutionChain mappedHandler, ModelAndView mv, Exception exception) throws Exception {
+~~~
 
+当ModelAndView获取到后，整个请求Controller也就结束，调用这个方法来判断请求是否成功，如果exception不为空，则设置errorView，然后调用这个方法渲染view。
 
+​								**render(mv, request, response);**
 
+在渲染中，如果view是String类型，则先根据viewName获取view视图，然后渲染view，如果正常结束，则调用Interceptor的afterCompletion方法，最后修改信息。
 
+#### 1.7 LocalResolver
 
+其主要作用在于根据不同的用户区域展示不同的视图，而用户的区域也称为Locale，该信息是可以由前端直接获取的。通过这种方式，可以实现一种国际化的目的，比如针对美国用户可以提供一个视图，而针对中国用户则可以提供另一个视图。在org.springframework.web.servlet.i18n这个包下，有几个Localresolver解析器。
 
+**AcceptHeaderLocaleResolver**
 
+​	SpringMvc 默认采用的区域解析器。通过Http请求头部解析请求。
 
+**SessionLocalResolver**
 
+​	它通过检验用户会话中预置的属性来解析区域。如果该会话属性不存在，它会根据accept-language HTTP头部确定默认区域。
 
+**CookieLocaleResolver**
 
+​	使用用户浏览器中的Cookie解析。如果Cookie不存在，它会根据accept-language HTTP头部确定默认区域。 
 
+​	当init加载完成后，LocalResolver会注入`AcceptHeaderLocaleResolver`这个类进去。当调用render方法时，会根据reuqest调用resolverLocal方法，设置Local.
 
+```java
+protected void render(ModelAndView mv, HttpServletRequest request, HttpServletResponse response) throws Exception {
+   // Determine locale for request and apply it to the response.
+   Locale locale = this.localeResolver.resolveLocale(request);
+   response.setLocale(locale);
+```
 
+```java
+/** AcceptHeaderLocaleResolver中的实现  */
+@Override
+public Locale resolveLocale(HttpServletRequest request) {
+   Locale defaultLocale = getDefaultLocale();
+   if (defaultLocale != null && request.getHeader("Accept-Language") == null) {
+      return defaultLocale;
+   }
+   Locale locale = request.getLocale();
+   if (!isSupportedLocale(locale)) {
+      locale = findSupportedLocale(request, locale);
+   }
+   return locale;
+}
+```
 
+#### 1.8 ThemeResolver
 
+​	主题就是系统的整体样式或风格，可通过Spring MVC框架提供的主题（theme）设置应用的整体样式风格，提高用户体验。Spring MVC的主题就是一些静态资源的集合，即包括样式及图片，用来控制应用的视觉风格。在Spring上下文中定义了Theme后，DispatcherServlet会在Spring容器中查找id为themeResolver的Bean并使用。ThemeResolver工作原理与LocaleResolver工作原理基本是一样的，它在request中查找theme主题并可以修改request的theme主题。
 
+**FixedThemeResolver**
+
+​	使用固定的主题，主题的名字（就是主题的属性文件名）可通过`defaultThemeName`属性指定，该值默认是`theme`
+
+**CookieThemeResolver**、**SessionThemeResolver**
+
+​	同LocalResolver。
 
 
 
