@@ -175,9 +175,21 @@ anyMatch、 allMatch、 noneMatch、 findFirst、 findAny、 limit
 - 可以是无限的
   - 集合有固定大小，Stream 则不必。limit(n) 和 findFirst() 这类的 short-circuiting 操作可以对无限的 Stream 进行运算并很快完成。
 
+![](939998-20170328220336326-882287689.png)
 
+Stream 操作示意图
 
+​	当stream 开始执行后，会获取一个stream，当stream获取到后，开始对每一步进行stage操作，每次操作stream对象，都会生成新的Stream对象，这些Stream通过双向链表的方式链接在一起，构成一个流水线，由于每个Stage都记录了前一个stage以及本次的操作和回调函数，依靠这种数据结构，就能建立起对数据源的所有操作。
 
+​	Stream每个stage的叠加，都是由一个Sink接口完成，这个接口包含`begin()`,`end()`,`accept()`,`cancellationRequested()`这四个接口，每个stage都将自己的操作封装到Sink接口中。前一个Sink只需要调用下一个接口的accept()方法即可。并不需要知道内部是如何处理的。如果对于有状态的操作。Sink接口的begin,end接口也是必须要实现的。例如排序，可能会在begin中存放数据的容器，accept每次执行，会将结果放到容器中，end方法负责对容器进行排序，并判断下次操作是否是短路操作，并执行下一次的accept方法。Sink的执行为：**begin-->accept-->cancellationRequested-->end**
+
+​	当Stage都封装到Sink之后，链表也就形成了，当执行最后的结束操作时，整个Stream也就开始执行了。
+
+​	当执行完成之后，stream的结果也就得到了，
+
+1. 对于表中返回boolean或者Optional的操作（Optional是存放 一个 值的容器）的操作，由于值返回一个值，只需要在对应的Sink中记录这个值，等到执行结束时返回就可以了。
+2. 对于归约操作，最终结果放在用户调用时指定的容器中（容器类型通过[收集器](https://www.cnblogs.com/CarpenterLee/archive/2017/03/28/5-Streams%20API(II).md#%E6%94%B6%E9%9B%86%E5%99%A8)指定）。collect(), reduce(), max(), min()都是归约操作，虽然max()和min()也是返回一个Optional，但事实上底层是通过调用[reduce()](https://www.cnblogs.com/CarpenterLee/archive/2017/03/28/5-Streams%20API(II).md#%E5%A4%9A%E9%9D%A2%E6%89%8Breduce)方法实现的。
+3. 对于返回是数组的情况，毫无疑问的结果会放在数组当中。这么说当然是对的，但在最终返回数组之前，结果其实是存储在一种叫做*Node*的数据结构中的。Node是一种多叉树结构，元素存储在树的叶子当中，并且一个叶子节点可以存放多个元素。这样做是为了并行执行方便。
 
 
 
