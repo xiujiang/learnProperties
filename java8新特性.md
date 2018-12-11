@@ -109,7 +109,7 @@ class aa {
 
 ​	原文章https://www.ibm.com/developerworks/cn/java/j-lo-java8streamapi/
 
-	### 1.什么是流
+### 1.什么是流
 
 ​	Stream 不是集合元素，它不是数据结构并不保存数据，它是有关算法和计算的，它更像一个高级版本的 Iterator。原始版本的 Iterator，用户只能显式地一个一个遍历元素并对其执行某些操作；高级版本的 Stream，用户只要给出需要对其包含的元素执行什么操作，比如 “过滤掉长度大于 10 的字符串”、“获取每个字符串的首字母”等，Stream 会隐式地在内部进行遍历，做出相应的数据转换。
 
@@ -134,21 +134,16 @@ Stream 的另外一大特点是，数据源本身可以是无限的。
 
 - **short-circuiting**​  对于一个 intermediate 操作，如果它接受的是一个无限大（infinite/unbounded）的 Stream，但返回一个有限的新 Stream。对于一个 terminal 操作，如果它接受的是一个无限大的 Stream，但能在有限的时间计算出结果。当操作一个无限大的 Stream，而又希望在有限时间内完成操作，则在管道内拥有一个 short-circuiting 操作是必要非充分条件。
 
-### 流的操作
+### 2.流的操作
 
 接下来，当把一个数据结构包装成 Stream 后，就要开始对里面的元素进行各类操作了。常见的操作可以归类如下。
 
-- Intermediate：
-
-map (mapToInt, flatMap 等)、 filter、 distinct、 sorted、 peek、 limit、 skip、 parallel、 sequential、 unordered
-
-- Terminal：
-
-forEach、 forEachOrdered、 toArray、 reduce、 collect、 min、 max、 count、 anyMatch、 allMatch、 noneMatch、 findFirst、 findAny、 iterator
-
-- Short-circuiting：
-
-anyMatch、 allMatch、 noneMatch、 findFirst、 findAny、 limit
+| Stream操作分类                    |                                                              |                                                              |
+| --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| 中间操作(Intermediate operations) | 无状态(Stateless)                                            | map (mapToInt, flatMap 等)、 filter、 distinct、 sorted、 peek、 limit、 skip、 parallel、 sequential、 unordered |
+| 有状态(Stateful)                  | distinct() sorted() sorted() limit() skip()                  |                                                              |
+| 结束操作(Terminal operations)     | 非短路操作                                                   | forEach、 forEachOrdered、 toArray、 reduce、 collect、 min、 max、 count、 anyMatch、 allMatch、 noneMatch、 findFirst、 findAny、 iterator |
+| 短路操作(short-circuiting)        | anyMatch、 allMatch、 noneMatch、 findFirst、 findAny、 limit |                                                              |
 
 **总之，Stream 的特性可以归纳为：**
 
@@ -175,9 +170,25 @@ anyMatch、 allMatch、 noneMatch、 findFirst、 findAny、 limit
 - 可以是无限的
   - 集合有固定大小，Stream 则不必。limit(n) 和 findFirst() 这类的 short-circuiting 操作可以对无限的 Stream 进行运算并很快完成。
 
+### 3.Stream 的创建
 
+​	1.Collection
 
+```java
+Set，List，Map，SortedSet，SortedMap，HashSet，TreeSet，ArrayList，LinkedList，Vector，Collections，Arrays，AbstractCollection
+```
 
+​	2.Arrays.stream
+
+​	3.Stream.of
+
+​	4.Stream.iterate
+
+​	5.Stream.generate
+
+### 4.Stream 的原理实现
+
+​	![](939998-20170328220336326-882287689.png)
 
 
 
