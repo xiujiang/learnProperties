@@ -14,7 +14,7 @@ Spring 是如何通过XML方式启动项目的：
 			7.1.1 使用DefaultBeanDefinitionDocumentReader 实例化BeanDefinitionDocumentReader
 			7.1.2 设置环境变量
 			7.1.3 获取加载Bean的个数
-			7.1.4 调用 document.registerBeanDefinitions(doc,createReaderContext(resource))
+			7.1.4 调用   document.registerBeanDefinitions(doc,createReaderContext(resource))
 				 7.1.4.1 得到 Element root 对象， 调用 doRegisterBeanDefinitions(root)
 					7.1.4.1.1 处理profile属性
 					7.1.4.1.2 在解析前后都有留给子类实现的方法，中间调用 parseBeanDefinitions(root,this.delegate)
@@ -265,7 +265,7 @@ ClassPathXmlApplicationContext
 	并有可能修改它，还可以通过设置order属性控制BeanFactoryPostProcessor的执行顺序。
 		如果你想改变Bean实例，那么最好用BeanPostProcessor,BeanFactoryPostProcessor作用域范围是容器级的，他只是和你使用的容器有关，如果在容器中定义后，只是对当前容器bean进行后置处理，不会对其他容器中bean有影响
 		典型应用：PropertyPlaceholderConfigurer
-	2.BeanFactory 和 FactoryBean
+	2.BeanFactory 和 FactoryBean  
 	
 
 ~~~
