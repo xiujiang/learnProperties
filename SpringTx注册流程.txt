@@ -1,0 +1,82 @@
+Spring事务注册流程
+	1.TxNamespaceHandler 注册配置 annotation-driven （new AnnotationDrivenBeanDefinitionParser）
+	2.parse() 解析<tx:annotation-driven> 为开头的
+		2.1 如果mode 为"aspectj" 则使用AspectJ方式切入 registerJtaTransactionAspect
+		2.2 否则使用proxy 方式切入	configureAutoProxyCreator
+			2.2.1 registerAutoProxyCreatorIfNecessary 注册自动代理器
+				2.2.1.1 注册InfrastructureAdvisorAutoProxyCreator，这个类间接实现了SmartInstantiationAwareBeanPostProcessor->InstantiationAwareBeanPostProcessor
+						也就是在实例化时Spring会保证其调用postProcesorAfterInitialization
+			2.2.2 创建TransactionAttributeSource的Bean，并生成beanName
+			2.2.3 创建TransactionInterceptor的Bean，并生成beanName
+			2.2.4 创建TransactionAttributeSourdceAdvisor的Bean，并将前面两个Bean放入其中
+			2.2.5 创建CompositeComponentDefinition
+			
+	
+	1.postProcesorAfterInitialization ->wrapIfNecessary()
+		1.1 如果代理过，则返回
+		1.2 如果不需要增强，则返回
+		1.3 给定的bean是否是一个基础设施类，基础设施类不应被代理，或者配置了指定bean不需要自动代理
+		1.4 如果存在增强方法，则创建代理  getAdvicesAndAdvisorsForBean 子类重写 AbstractAdvisorAutoProxyCreator
+			1.4.1 获取候选增强器
+				1.4.1.1 根据Advisor.class 和BeanFactoryUtils获取到所有的advisorNames （之前的TransactionAttributeSourdceAdvisor也会被找到）
+				1.4.1.2 遍历advisorNames，获取所有的advisor Bean 
+			1.4.2 候选增强器中寻找匹配项
+				1.4.2.1 先处理引介增强 IntroductionAdvisor
+				1.4.2.2 如果是PointcutAdvisor 则继续canApply 
+					1.4.2.2.1 ClassFilter如果匹配targetClass失败，则退出
+					1.4.2.2.2 获取MethodMatcher 也就是自身
+					1.4.2.2.3 遍历所有calss，对class中每个method做matches
+						1.4.2.2.3.1 如果是TransactionalProxy，PlatformTransactionManager，PersistenceExceptionTranslator这三个类，则返回false
+						1.4.2.2.3.2 通过TransactionAttributeSource,这个也就是最开始注册的类AnnotationTransactionAttributeSource,提取事务标签，getTransactionAttribute 
+									尝试先通过缓存加载，如果没有，则computeTransactionAttribute加载
+							1.4.2.2.3.2.1 不允许非公共方法
+							1.4.2.2.3.2.2 获取实现类中的方法 findTransactionAttribute
+								1.4.2.2.3.2.2.1 循环annotationParsers，调用parseTransactionAnnotation方法 ，这个参数在初始化中赋值为SpringTransactionAnnotationParser() 
+									1.4.2.2.3.2.2.1.1 判断当前类是否含有Transactional注解 如果有，则调用parseTransactionAnnotation
+										1.4.2.2.3.2.2.1.1.1 设置具体Transaction属性(propagation,isolation,timeout,readOnly,value,rollbackFor,rollbackForClassName,noRollbackFor,noRollbackForClassName)
+							1.4.2.2.3.2.3 查看方法是否存在事务声明 findTransactionAttribute
+							1.4.2.2.3.2.4 查看方法所在类是否存在事务声明 findTransactionAttribute
+							1.4.2.2.3.2.5 如果存在接口，则到接口去寻找 findTransactionAttribute
+								1.4.2.2.3.2.5.1 查找接口方法  findTransactionAttribute
+								1.4.2.2.3.2.5.2 接口的类中查找  findTransactionAttribute
+								（获取属性：如果方法中存在事务属性，则使用方法事务属性，否则使用方法所在类的事务属性，如果还没找到，则再搜寻接口的方法，在接口的类上面的声明）
+	
+
+	1.具体的事务增强，是在TransactionInterceptor中实现，TransactionInterceptor继承自MethodInterceptor 从invoke方法开始
+		1.1 获取目标类
+		1.2 对目标类做代理 invokeWithinTransaction
+			1.2.1 获取事务source  TransactionAttributeSource
+			1.2.2 获取事务属性    TransactionAttribute 
+			1.2.3 获取事务管理器  PlatformTransactionManager
+			1.2.4 构造方法唯一标识(类.方法，如：service.UserServiceImpl.save)
+			1.2.5 如果是声明式事务
+				1.2.5.1 创建TransactionInfo ,也就是创建事务    createTransactionIfNecessary
+					1.2.5.1.1 如果没有名称指定则使用方法唯一标识，并使用DelegatingTransactionAttribute封装txAttr
+					1.2.5.1.2 获取事务状态	
+					1.2.5.1.3 根据指定事务与status准备一个TransactionInfo
+				1.2.5.2 执行被增强的方法invocation.proceed()  try中，如果异常，则回滚
+				1.2.5.3 提交事务
+			1.2.6 如果是编程式事务
+					……………类似		
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								
+								

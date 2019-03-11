@@ -1,0 +1,96 @@
+AnnotationAwareAspectJAutoProxyCreator实现了BeanPostProcessor接口，而实现BeanPostProcessor后，Spring加载这个Bean时，会在实例化前调用其postProcessAfterInitialization方法，AOP的逻辑也是从这里开始了
+动态AOP自定义标签
+	1.AopNamespaceHandler init方法注册解析器
+		1.注册config标签(略)
+		2.注册aspectj-autoproxy标签 AspectJAutoProxyBeanDefinitionParser
+			2.1 registerAspectJAnnotationAutoProxyCreatorIfNecessary 注册或者升级AutoProxyCreator 定义beanName为org.Springframework.aop.config.internalAutoProxyCreator的BeanDefinition
+				2.1.1 如果已经存在自动代理创建器切存在的自动代理创建器与现在的不一致，那么需要根据优先级判断使用哪一个
+					2.1.1.1 改变beanClassName
+			2.2 对于proxy-target-class 以及expose-proxy属性处理 useClassProxyingIfNecessary
+				2.2.1 如果设置了proxy-target-class=true 属性 会强制使用CGLIB 创建代理
+				2.2.2 expose-proxy 可以保证目标对象内部的自我调用实施切面增强
+		 
+			2.3 postProcessorAfterInitialization() 注册AnnotationAwareAspectJAutoProxyCreator，这个类实现了BeanPostProcessor接口，如果实现BeanPostProcessor接口，Spring在 Bean加载实例化前调用其postProcessorAfterInitialization方法 
+				2.3.1 wrapIfNecessary 如果适合代理，则封装指定bean代理
+					2.3.1.1 如果已经处理，则返回
+					2.3.1.2 如果不需要增强，则返回 nonAdvisedBeans
+					2.3.1.3 给定的bean是否是一个基础设施类，基础设施类不应被代理，或者配置了指定bean不需要自动代理
+					2.3.1.4 如果存在增强方法，则创建代理  getAdvicesAndAdvisorsForBean
+						2.3.1.4.1 findCandidateAdvisors 获取所有增强器  并返回
+							2.3.1.4.1.1 buildAspectJAdvisors 
+								2.3.1.4.1.1.1 首先获取所有beanName
+								2.3.1.4.1.1.2 循环所有beanName, 不合法的bean略过，如果存在Aspect注解，解析标记AspectJ注解中的增强方法 getAdvisors()
+									2.3.1.4.1.1.2.1 获取标记为AspectJ的类
+									2.3.1.4.1.1.2.2 获取标记为AspectJ的name
+									2.3.1.4.1.1.2.3 验证class
+									2.3.1.4.1.1.2.4 对class 中方法进行遍历，不处理Pointcut.class的方法，然后获取增强器 getAdvisor
+										2.3.1.4.1.1.2.4.1 获取切点信息 getPointcut
+											2.3.1.4.1.1.2.4.1.1 获取方法上的注解 findAspectJAnnotationOnMethod
+											2.3.1.4.1.1.2.4.1.2 使用AspectJExpressionPointcut实例封装获取的信息
+											2.3.1.4.1.1.2.4.1.3 提取得到的注解中的表达式 
+										2.3.1.4.1.1.2.4.2 根据切点信息生成增强器
+											2.3.1.4.1.1.2.4.2.1 所有的增强都由Advisor的实现类InstantiationModelAwarePointcutAdvisorImpl统一封装
+											
+									2.3.1.4.1.1.2.5 如果增强器不为空，并且配置了增强延迟初始化，那么需要在首位加入同步实例化增强器以保证增强使用之前的实例化
+									2.3.1.4.1.1.2.6 获取DeclareParents注解
+					2.3.1.5 获取到了增强，则需要对增强创建代理，并且添加到nonAdvisedBeans 返回代理
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+明白：
+	JDK动态代理：其代理对象必须是某个接口的实现，它是通过在运行期间创建一个接口的实现类来完成对目标对象的代理
+	CGLIB代理：实现原理类似于JDK动态代理，只是它在运行期间生成的代理对象是针对目标类扩展的子类。CGLIB是高效的代码生成包，底层是依靠ASM（开源的java字节码编辑类库）操作字节码实现的，性能比jdk强
+	AOP比较重要的地方
+		1.AOP的配置(拦截规则的配置)
+		2.代理对象的创建
+		3.统一的拦截调用过程
+		Advice：SpringAOP中定义的类，是一个标示性接口，通知类型的接口，同时也是Interceptor,MethodInterceptor的父类。通知类型都会去实现的一个接口
+		Advisor:关联了Advice和Pointcut，在SpringAOP中 上起到了连接点的匹配，下祈祷了通知类型的调用，统一了拦截的调用过程
+		Advised:关联了Advisor和TargetSource的类，AOP进行方法拦截的时候，就从它里面获取的拦截调用链
+		
+		AspectJProxyFactory
+		AspectMetadata：主要存了切面类名字，切面类对象，AspectJ中定义的存储切面类Class对象的类以及SpringAOP中的切点表达式
+		
+		
+		
+		
+		
